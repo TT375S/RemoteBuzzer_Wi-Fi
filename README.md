@@ -9,6 +9,7 @@ They are executable on only ESP8266.
 ![Buzzer](./BuzzerWifi.png "サンプル") 
 
 #How to use
-Please fix  
+Please fix 
+**Both**
     const char* ssid     = "YOUR_WiFi_SSID";
     const char* password = "YOUR_WiFi_PASSWORD";
