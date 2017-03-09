@@ -81,9 +81,9 @@ void loop() {
   if(val)play(pinnum, 300);
   //play(pinnum, 300);
   digitalWrite(ledPin, HIGH);
-  delay(1000);
+  delay(250);
   digitalWrite(ledPin, LOW);
-  delay(9000);
+  delay(3000);
 
   Serial.print("connecting to ");
   Serial.println(host);
@@ -122,13 +122,22 @@ void loop() {
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
                "Connection: close\r\n\r\n");
+
+  Serial.println("waiting response...\r\n");
   int timeout = millis() + 5000;
+  int stTime = millis();
   while (client.available() == 0) {
-    if (timeout - millis() < 0) {
+//    if (timeout - millis() < 0) {
+//      Serial.println(">>> Client Timeout !");
+//      client.stop();
+//      return;
+//    }
+    if (millis()-stTime > 4000) {
       Serial.println(">>> Client Timeout !");
       client.stop();
       return;
     }
+    delay(1);
   }
 
   // Read all the lines of the reply from server and print them to Serial

@@ -103,9 +103,17 @@ void loop() {
   
   // Wait until the client sends some data
   Serial.println("new client");
+  int time = millis();
   while(!client.available()){
+    //タイムアウト処理
+    if(millis()-time>5000){
+        Serial.println("TIMEOUT :new client");
+        //client.stop;
+        return;
+      }
     delay(1);
   }
+  
   
   // Read the first line of the request
   String req = client.readStringUntil('\r');
