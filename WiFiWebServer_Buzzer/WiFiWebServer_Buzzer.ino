@@ -5,15 +5,21 @@
 
 //const char* ssid     = "pr500k-c374e6-1";
 //const char* password = "272cb07923209";
+
+//const char* ssid     = "ESP_D59142";
+//const char* password = "";
 const char* ssid     = "aterm-67d898-g";
 const char* password = "4c29770bd0558";
+
 int val=0;
 //gpioNumber. default is 2.
-const int pinnum = 14;
+const int pinnum = 12;
+const int ledPin = 14;
 //電源入って一番最初の通信かどうか。これにより、ブザー側のリセットボタンを押した後の最初の通信で、スイッチ側もリセットします。
 int isFirstConnect = 1;
 
 //接続先のIPアドレス
+//const char* host = "192.168.4.1";
 const char* host = "192.168.0.31";
 
 void setup() {
@@ -23,6 +29,8 @@ void setup() {
   // prepare GPIO
   pinMode(pinnum, OUTPUT);
   digitalWrite(pinnum, 0);
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, 0);
   
 // We start by connecting to a WiFi network
   Serial.println();
@@ -46,6 +54,7 @@ void setup() {
 
 void play(int buzzer, int BEAT) {
   int i = 0;
+  digitalWrite(ledPin, HIGH);
   const int score[] = {262, 294, 330, 349, 392, 440, 494, 523, 0};
   //analogWrite(buzzer, 500) ;
 
@@ -54,15 +63,27 @@ void play(int buzzer, int BEAT) {
     delay(BEAT);
   }
   noTone(buzzer);
+  digitalWrite(ledPin, LOW);
 }
 
+void flashingLED(const int ledpin){
+  int i;
+  for(i=0; i<8; i++){
+    digitalWrite(ledpin, HIGH);
+    delay(250);
+    digitalWrite(ledpin, LOW);
+    delay(250);
+  }
+}
 
 void loop() {
       // Set GPIO according to the request
   if(val)play(pinnum, 300);
   //play(pinnum, 300);
-  
-  delay(2000);
+  digitalWrite(ledPin, HIGH);
+  delay(1000);
+  digitalWrite(ledPin, LOW);
+  delay(9000);
 
   Serial.print("connecting to ");
   Serial.println(host);
@@ -72,7 +93,11 @@ void loop() {
   const int httpPort = 80;
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed");
+    //接続失敗はLEDピカピカで教える
+    flashingLED(ledPin);
     return;
+  }else{
+    digitalWrite(ledPin, LOW);
   }
 
   // We now create a URI for the request
