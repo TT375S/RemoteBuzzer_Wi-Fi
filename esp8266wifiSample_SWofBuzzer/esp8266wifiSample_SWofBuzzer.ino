@@ -12,6 +12,8 @@ const char* ssid     = "aterm-67d898-g";
 const char* password = "4c29770bd0558";
 const int buzzerPin = 0;
 const int LEDPin = 14;
+//パイロットランプになる赤ランプ
+const int LEDPin_r = 12;
 const int chatteringIgnoreTime = 200;
 //const int stateResetTime = 1000*180;
 //ブザーがオンか否か。0==OFF
@@ -21,8 +23,6 @@ int ct, pt;
 int stateOnTime=0;
 
 int val = 0;
-//ブザーのIPアドレス
-const char* host = "192.168.0.25";
 
 // Create an instance of the server
 // specify the port to listen on as an argument
@@ -31,6 +31,7 @@ WiFiServer server(80);
 int temp = 0;
 void setup() {
   pinMode(LEDPin, OUTPUT);
+  pinMode(LEDPin_r, OUTPUT);
   //スイッチのセットアップ
   pinMode(buzzerPin, INPUT);
   ct = pt = 0;
@@ -100,7 +101,7 @@ void loop() {
   if (!client) {
     return;
   }
-  
+  digitalWrite(LEDPin_r, HIGH);
   // Wait until the client sends some data
   Serial.println("new client");
   int time = millis();
@@ -113,7 +114,8 @@ void loop() {
       }
     delay(1);
   }
-  
+  delay(30);
+  digitalWrite(LEDPin_r, LOW);
   
   // Read the first line of the request
   String req = client.readStringUntil('\r');
