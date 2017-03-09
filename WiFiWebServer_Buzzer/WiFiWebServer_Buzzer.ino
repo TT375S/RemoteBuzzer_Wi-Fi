@@ -64,6 +64,7 @@ void play(int buzzer, int BEAT) {
   }
   noTone(buzzer);
 }
+
 int val=0;
 void loop() {
       // Set GPIO2 according to the request
@@ -93,6 +94,9 @@ void loop() {
     val = 0;
   else if (req.indexOf("/gpio/1") != -1)
     val = 1;
+  //Get state
+  else if(req.indexOf("/state") != -1)
+    val = val;
   else {
     Serial.println("invalid request");
     client.stop();

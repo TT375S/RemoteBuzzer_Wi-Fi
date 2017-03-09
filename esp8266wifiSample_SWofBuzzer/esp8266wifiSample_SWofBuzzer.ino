@@ -1,53 +1,75 @@
+/*
+ *  This sketch demonstrates how to set up a simple HTTP-like server.
+ *  The server will set a GPIO pin depending on the request
+ *    http://server_ip/gpio/0 will set the GPIO2 low,
+ *    http://server_ip/gpio/1 will set the GPIO2 high
+ *  server_ip is the IP address of the ESP8266 module, will be 
+ *  printed to Serial when the module is connected.
+ */
 #include <ESP8266WiFi.h>
 
 const char* ssid     = "aterm-67d898-g";
 const char* password = "4c29770bd0558";
 const int buzzerPin = 0;
 const int LEDPin = 14;
+const int chatteringIgnoreTime = 200;
+//const int stateResetTime = 1000*180;
 //ブザーがオンか否か。0==OFF
 int state = 0;
 //チャタリング防止に使う。時間を記録する
 int ct, pt;
+int stateOnTime=0;
 
+int val = 0;
 //ブザーのIPアドレス
-const char* host = "192.168.0.4";
+const char* host = "192.168.0.25";
+
+// Create an instance of the server
+// specify the port to listen on as an argument
+WiFiServer server(80);
+
 int temp = 0;
 void setup() {
   pinMode(LEDPin, OUTPUT);
   //スイッチのセットアップ
   pinMode(buzzerPin, INPUT);
   ct = pt = 0;
-
+  
   //割り込み準備
   attachInterrupt(0, changeState, FALLING);
+  
   //以下はネットワーク接続のセットアップ
   Serial.begin(115200);
   delay(10);
-
-  // We start by connecting to a WiFi network
-
+  
+  // Connect to WiFi network
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-
+  
   WiFi.begin(ssid, password);
-
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
   Serial.println("");
   Serial.println("WiFi connected");
-  Serial.println("IP address: ");
+  
+  // Start the server
+  server.begin();
+  Serial.println("Server started");
+
+  // Print the IP address
   Serial.println(WiFi.localIP());
 }
 
 void changeState() {
+  //最新の押した時刻
   ct = millis();
-  //チャタリング防止
-  if (ct - pt > 200) {
+  //チャタリング防止。現在-前回の時刻が小さければ、チャタリングだとして無視する
+  if (ct - pt > chatteringIgnoreTime) {
     if (state == 0) {
       state = 1;
       digitalWrite(LEDPin, HIGH);
@@ -57,58 +79,55 @@ void changeState() {
       digitalWrite(LEDPin, LOW);
     }
   }
+  //前回押された時刻
   pt = millis();
 }
 
 void loop() {
-  delay(2000);
-  if (state == 0) {
-    Serial.println("SW is False.");
-  }
-  else {
-    Serial.println("SW is True.");
-  }
-  Serial.print("connecting to ");
-  Serial.println(host);
-
-  // Use WiFiClient class to create TCP connections
-  WiFiClient client;
-  const int httpPort = 80;
-  if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (!client) {
     return;
   }
-
-  // We now create a URI for the request
-  String url;
-  if (state == 1)
-    url = "/gpio/1";
-  else url = "/gpio/0";
-
-  temp = (temp + 1) % 2;
-
-  Serial.print("Requesting URL: ");
-  Serial.println(url);
-
-  // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" +
-               "Connection: close\r\n\r\n");
-  int timeout = millis() + 5000;
-  while (client.available() == 0) {
-    if (timeout - millis() < 0) {
-      Serial.println(">>> Client Timeout !");
-      client.stop();
-      return;
-    }
+  
+  // Wait until the client sends some data
+  Serial.println("new client");
+  while(!client.available()){
+    delay(1);
   }
-
-  // Read all the lines of the reply from server and print them to Serial
-  while (client.available()) {
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
+  
+  // Read the first line of the request
+  String req = client.readStringUntil('\r');
+  Serial.println(req);
+  client.flush();
+  
+  // Match the request
+  ///gpio/0と1は、スイッチのステートを強制的に変更するデバッグ用
+  if (req.indexOf("/gpio/0") != -1)
+    val = 0;
+  else if (req.indexOf("/gpio/1") != -1)
+    val = 1;
+  //Get state
+  else if(req.indexOf("/state") != -1)
+    val = state;
+  else {
+    Serial.println("invalid request");
+    client.stop();
+    return;
   }
+  
+  client.flush();
 
-  Serial.println();
-  Serial.println("closing connection");
+  // Prepare the response
+  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
+  s += (val)?"high":"low";
+  s += "</html>\n";
+
+  // Send the response to the client
+  client.print(s);
+  delay(1);
+  Serial.println("Client disonnected");
+
+  // The client will actually be disconnected 
+  // when the function returns and 'client' object is destroyed
 }
