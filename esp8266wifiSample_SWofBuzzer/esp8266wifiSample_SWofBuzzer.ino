@@ -83,6 +83,17 @@ void changeState() {
   pt = millis();
 }
 
+void flashingLED(const int ledpin){
+  int i;
+  for(i=0; i<8; i++){
+    digitalWrite(ledpin, HIGH);
+    delay(250);
+    digitalWrite(ledpin, LOW);
+    delay(250);
+  }
+  
+}
+
 void loop() {
   // Check if a client has connected
   WiFiClient client = server.available();
@@ -103,13 +114,22 @@ void loop() {
   
   // Match the request
   ///gpio/0と1は、スイッチのステートを強制的に変更するデバッグ用
-  if (req.indexOf("/gpio/0") != -1)
+  if (req.indexOf("/gpio/0") != -1){
     val = 0;
-  else if (req.indexOf("/gpio/1") != -1)
+    state = 0;
+    flashingLED(LEDPin);
+    digitalWrite(LEDPin, LOW);
+  }
+  else if (req.indexOf("/gpio/1") != -1){
     val = 1;
+    state = 1;
+    flashingLED(LEDPin);
+    digitalWrite(LEDPin, HIGH);
+  }
   //Get state
-  else if(req.indexOf("/state") != -1)
+  else if(req.indexOf("/state") != -1){
     val = state;
+  }
   else {
     Serial.println("invalid request");
     client.stop();
@@ -121,7 +141,7 @@ void loop() {
   // Prepare the response
   String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
   s += (val)?"high":"low";
-  s += "</html>\n";
+  s += "\r\n</html>\r\n";
 
   // Send the response to the client
   client.print(s);

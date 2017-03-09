@@ -1,54 +1,45 @@
-/*
- *  This sketch demonstrates how to set up a simple HTTP-like server.
- *  The server will set a GPIO pin depending on the request
- *    http://server_ip/gpio/0 will set the GPIO2 low,
- *    http://server_ip/gpio/1 will set the GPIO2 high
- *  server_ip is the IP address of the ESP8266 module, will be 
- *  printed to Serial when the module is connected.
- */
+//webserverという名前だけど、今はwebclientです。過去のバージョンではサーバーでした。
 
 #include <ESP8266WiFi.h>
+#include <string.h>
 
 //const char* ssid     = "pr500k-c374e6-1";
 //const char* password = "272cb07923209";
 const char* ssid     = "aterm-67d898-g";
 const char* password = "4c29770bd0558";
-
+int val=0;
 //gpioNumber. default is 2.
 const int pinnum = 14;
+//電源入って一番最初の通信かどうか。これにより、ブザー側のリセットボタンを押した後の最初の通信で、スイッチ側もリセットします。
+int isFirstConnect = 1;
 
-// Create an instance of the server
-// specify the port to listen on as an argument
-WiFiServer server(80);
+//接続先のIPアドレス
+const char* host = "192.168.0.31";
 
 void setup() {
   Serial.begin(115200);
   delay(10);
 
-  // prepare GPIO2
+  // prepare GPIO
   pinMode(pinnum, OUTPUT);
   digitalWrite(pinnum, 0);
   
-  // Connect to WiFi network
+// We start by connecting to a WiFi network
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
+
   WiFi.begin(ssid, password);
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
   Serial.println("");
   Serial.println("WiFi connected");
-  
-  // Start the server
-  server.begin();
-  Serial.println("Server started");
-
-  // Print the IP address
+  Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
@@ -65,59 +56,74 @@ void play(int buzzer, int BEAT) {
   noTone(buzzer);
 }
 
-int val=0;
+
 void loop() {
-      // Set GPIO2 according to the request
+      // Set GPIO according to the request
   if(val)play(pinnum, 300);
+  //play(pinnum, 300);
   
-  // Check if a client has connected
-  WiFiClient client = server.available();
-  if (!client) {
+  delay(2000);
 
-    return;
-  }
-  
-  // Wait until the client sends some data
-  Serial.println("new client");
-  while(!client.available()){
-    delay(1);
-  }
-  
-  // Read the first line of the request
-  String req = client.readStringUntil('\r');
-  Serial.println(req);
-  client.flush();
-  
-  // Match the request
-  
-  if (req.indexOf("/gpio/0") != -1)
-    val = 0;
-  else if (req.indexOf("/gpio/1") != -1)
-    val = 1;
-  //Get state
-  else if(req.indexOf("/state") != -1)
-    val = val;
-  else {
-    Serial.println("invalid request");
-    client.stop();
+  Serial.print("connecting to ");
+  Serial.println(host);
+
+  // Use WiFiClient class to create TCP connections
+  WiFiClient client;
+  const int httpPort = 80;
+  if (!client.connect(host, httpPort)) {
+    Serial.println("connection failed");
     return;
   }
 
+  // We now create a URI for the request
+  String url;
+//  if (state == 1)
+//    url = "/gpio/1";
+//  else url = "/gpio/0";
 
-  
-  client.flush();
+//いつもstateを聞くことにする
+  url = "/state";
+//最初の通信だけは、スイッチの値をリセットする。
+  if(isFirstConnect == 1){
+    isFirstConnect = 0;
+    url = "/gpio/0";
+    Serial.println("\r\nisFirstConnect!\r\n");
+  }
 
-  // Prepare the response
-  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\nGPIO is now ";
-  s += (val)?"high":"low";
-  s += "</html>\n";
+  Serial.print("Requesting URL: ");
+  Serial.println(url);
 
-  // Send the response to the client
-  client.print(s);
-  delay(1);
-  Serial.println("Client disonnected");
+  // This will send the request to the server
+  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" +
+               "Connection: close\r\n\r\n");
+  int timeout = millis() + 5000;
+  while (client.available() == 0) {
+    if (timeout - millis() < 0) {
+      Serial.println(">>> Client Timeout !");
+      client.stop();
+      return;
+    }
+  }
 
-  // The client will actually be disconnected 
-  // when the function returns and 'client' object is detroyed
+  // Read all the lines of the reply from server and print them to Serial
+  while (client.available()) {
+    String line = client.readStringUntil('\r');
+    Serial.print(line);
+    //何故か\rは無視されるけど\nはちゃんと入れないと認識してくれない。Arduinoは\rで改行？Cってそういうものなんだっけ。
+    String target = "\nGPIO is now high";
+    //SWのボタンが押されていればvalを1にしとく
+    if(line == target){
+        val = 1;
+        play(pinnum, 300);
+        Serial.print("\n    HIT!\n");
+      }else
+      {
+        val = 0;
+      }
+  }
+
+  Serial.println();
+  Serial.println("closing connection");
 }
 
