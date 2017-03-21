@@ -54,7 +54,7 @@ void setup() {
 
 void play(int buzzer, int BEAT) {
   int i = 0;
-  digitalWrite(ledPin, HIGH);
+ 
   const int score[] = {262, 294, 330, 349, 392, 440, 494, 523, 0};
   //analogWrite(buzzer, 500) ;
 
@@ -63,7 +63,7 @@ void play(int buzzer, int BEAT) {
     delay(BEAT);
   }
   noTone(buzzer);
-  digitalWrite(ledPin, LOW);
+
 }
 
 void flashingLED(const int ledpin){
@@ -77,13 +77,19 @@ void flashingLED(const int ledpin){
 }
 
 void loop() {
-      // Set GPIO according to the request
-  if(val)play(pinnum, 300);
-  //play(pinnum, 300);
+    // Set GPIO according to the request
+
+      
+  //毎秒、更新してると負担がかかるので何秒かごとにSWが押されてるかを確かめる
   digitalWrite(ledPin, HIGH);
-  delay(250);
+  if(val==1)play(pinnum, 300);
+  //一瞬だけパイロットランプ点灯のためのdelay(50)
+  delay(50);
   digitalWrite(ledPin, LOW);
-  delay(3000);
+  //SWが押されてる時はループ中でもLEDつけておく
+  if(val == 1)digitalWrite(ledPin, HIGH);
+  delay(4000);
+  
 
   Serial.print("connecting to ");
   Serial.println(host);
@@ -145,18 +151,19 @@ void loop() {
     String line = client.readStringUntil('\r');
     Serial.print(line);
     //何故か\rは無視されるけど\nはちゃんと入れないと認識してくれない。Arduinoは\rで改行？Cってそういうものなんだっけ。
-    String target = "\nGPIO is now high";
+    String target_high = "\nGPIO is now high";
+    String target_low = "\nGPIO is now low";
     //SWのボタンが押されていればvalを1にしとく
-    if(line == target){
+    //全ての行を読むため、Highでないかどうかだけだと、他の行例えば\nを読んだ時にHighでないからLow！って判定しちゃうのでHighとLowは別々にちゃんと確かめる
+    if(line == target_high){
         val = 1;
-        play(pinnum, 300);
         Serial.print("\n    HIT!\n");
-      }else
+      }else if(line == target_low)
       {
         val = 0;
+        Serial.print("\n    NOTHIT!\n");
       }
   }
-
   Serial.println();
   Serial.println("closing connection");
 }
